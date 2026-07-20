@@ -3,71 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Infinite Descent</title>
+    <title>3D Maze Experience</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background-color: #020202; user-select: none;}
-        #canvas-container { width: 100%; height: 100%; }
-
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 4px;
-            height: 4px;
-            background-color: rgba(255, 255, 255, 0.15);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #020202;
+            font-family: monospace;
+            user-select: none;
         }
 
-        /* UI Battery Bar Display */
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Battery HUD Overlay */
         #battery-hud {
             position: absolute;
-            bottom: 30px;
-            right: 30px;
+            bottom: 20px;
+            right: 20px;
             display: flex;
-            gap: 6px;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 8px;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 12px;
             border-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            opacity: 0;
+            transition: opacity 0.5s ease;
             pointer-events: none;
-            opacity: 0; /* Hidden initially during the bright building phase */
-            transition: opacity 1s ease;
         }
 
         .battery-cell {
-            width: 14px;
-            height: 28px;
+            width: 12px;
+            height: 24px;
             background-color: #00ff66;
             border-radius: 2px;
-            box-shadow: 0 0 8px rgba(0, 255, 102, 0.5);
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .battery-cell.low {
-            background-color: #ff3333;
-            box-shadow: 0 0 8px rgba(255, 51, 51, 0.6);
+            background-color: #ff3300;
         }
 
         .battery-cell.empty {
-            background-color: rgba(255, 255, 255, 0.05);
-            box-shadow: none;
+            background-color: #222;
+        }
+
+        .battery-cap {
+            width: 4px;
+            height: 12px;
+            background-color: #555;
+            border-radius: 0 2px 2px 0;
         }
     </style>
 </head>
 <body>
 
-    <div id="crosshair"></div>
-    
+    <div id="canvas-container"></div>
+
     <div id="battery-hud">
         <div id="cell-1" class="battery-cell"></div>
         <div id="cell-2" class="battery-cell"></div>
         <div id="cell-3" class="battery-cell"></div>
+        <div class="battery-cap"></div>
     </div>
 
-    <div id="canvas-container"></div>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const MAP_GRID = [
@@ -494,12 +496,13 @@
         }
 
         function checkCollision(pos) {
-            if (pos.x < 0 || pos.x >= WORLD_WIDTH || pos.z < 0 || pos.z >= WORLD_DEPTH) return false;
+            if (pos.x < 0 || pos.x >= WORLD_WIDTH || pos.z < 0 || pos.z >= WORLD_DEPTH) return true;
             let gx = Math.floor(pos.x / TILE_SIZE);
             let gz = Math.floor(pos.z / TILE_SIZE);
             
-            if (MAP_GRID[gz] && MAP_GRID[gz][gx] === 1) return false;
-            return true;
+            // Return true if position is colliding with a solid wall
+            if (MAP_GRID[gz] && MAP_GRID[gz][gx] === 1) return true;
+            return false;
         }
 
         function animate() {
@@ -549,7 +552,8 @@
             if (np.x < 0) np.x += WORLD_WIDTH; if (np.x >= WORLD_WIDTH) np.x -= WORLD_WIDTH;
             if (np.z < 0) np.z += WORLD_DEPTH; if (np.z >= WORLD_DEPTH) np.z -= WORLD_DEPTH;
 
-            if (checkCollision(np)) {
+            // Block movement if colliding with a wall
+            if (!checkCollision(np)) {
                 camera.position.copy(np);
             }
 
@@ -560,7 +564,7 @@
                 if(distanceToDoor < TRANSITION_TRIGGER_DISTANCE) {
                     if(audioCtx) audioCtx.close();
                     document.exitPointerLock();
-                    window.location.href = "./BlackjackMap.html"; 
+                    window.location.href = "./blackjackMap.html"; 
                 }
             });
 
