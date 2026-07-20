@@ -375,7 +375,7 @@
 
         function advanceDialogue() {
             if (currentLineIndex >= 0 && dialogueLines[currentLineIndex].type === "kick") {
-                window.location.href = 'BlackjackMap.html';
+                window.location.href = './BlackjackMap.html';
                 return; 
             }
 
@@ -877,7 +877,7 @@
         }
 
         leaveBtn.addEventListener('click', () => {
-            window.location.href = 'BlackjackMap.html';
+            window.location.href = './BlackjackMap.html';
         });
 
         dealBtn.addEventListener('click', startGame);
