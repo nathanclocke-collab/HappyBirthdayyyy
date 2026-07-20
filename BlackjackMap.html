@@ -32,11 +32,14 @@
     opacity: 1;
     transition: opacity 1.5s ease;
   }
+  
+  /* FIX: Ensure .fade overrides base opacity */
   #introOverlay.fade {
-    opacity: 0;
+    opacity: 0 !important;
   }
+  
   #introOverlay.fadeOut {
-    opacity: 1;
+    opacity: 1 !important;
     transition: opacity 2s ease;
   }
 </style>
@@ -50,7 +53,7 @@
 (function () {
   "use strict";
 
-  // ---------- MAP IMAGE (embedded, pixel-perfect collision) ----------
+  // ---------- MAP IMAGE ----------
   const MAP_DATA_URI = "pixelJazz.png";
 
   const FLOOR_COLORS = [
@@ -59,7 +62,7 @@
     [124, 95, 58],
     [105, 79, 49]
   ];
-  const COLOR_TOLERANCE = 10;
+  const COLOR_TOLERANCE = 20; // FIX: Increased tolerance slightly for JPEG/PNG compression artifacts
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
@@ -95,11 +98,14 @@
     sampleCanvas.width = mapW;
     sampleCanvas.height = mapH;
     sampleCtx.drawImage(mapImage, 0, 0);
-    mapPixels = sampleCtx.getImageData(0, 0, mapW, mapH).data;
 
-    logSampleColor("top-left", 2, 2);
-    logSampleColor("center", Math.floor(mapW / 2), Math.floor(mapH / 2));
-    logSampleColor("bottom-center", Math.floor(mapW / 2), mapH - 3);
+    // FIX: Catch CORS security errors if opened via file:// protocol
+    try {
+      mapPixels = sampleCtx.getImageData(0, 0, mapW, mapH).data;
+    } catch (e) {
+      console.warn("Could not read canvas pixel data. If opening locally, use Live Server or a local HTTP server.", e);
+      mapPixels = null;
+    }
 
     mapReady = true;
     const spawned = placePlayerAtBottomEntrance();
@@ -112,22 +118,22 @@
     const overlay = document.getElementById("introOverlay");
     setTimeout(() => {
       overlay.classList.add("fade");
-    }, 3000);
+    }, 1000);
   };
   mapImage.src = MAP_DATA_URI;
 
   // ---------- COLLISION ----------
-  function logSampleColor(label, x, y) {
-    if (x < 0 || y < 0 || x >= mapW || y >= mapH) return;
-    const idx = (y * mapW + x) * 4;
-  }
-
   function isFloorAt(x, y) {
+    // Fallback if CORS blocked pixel inspection
+    if (!mapPixels) return true;
+
     const ix = Math.floor(x);
     const iy = Math.floor(y);
     if (ix < 0 || iy < 0 || ix >= mapW || iy >= mapH) return false;
+    
     const idx = (iy * mapW + ix) * 4;
     const r = mapPixels[idx], g = mapPixels[idx + 1], b = mapPixels[idx + 2];
+    
     for (let i = 0; i < FLOOR_COLORS.length; i++) {
       const c = FLOOR_COLORS[i];
       if (
@@ -144,6 +150,9 @@
   const PLAYER_HALF = 3; 
 
   function canStandAt(x, y) {
+    // If map pixel inspection fails, don't trap player
+    if (!mapPixels) return true;
+
     const h = PLAYER_HALF - 0.5;
     return (
       isFloorAt(x - h, y - h) &&
@@ -195,7 +204,7 @@
     facing: "down"
   };
 
-  // ---------- STAGE NPCs (jazz quartet) ----------
+  // ---------- STAGE NPCs ----------
   let npcs = [
     { x: 271, y: 38, color: "#ffb347" },
     { x: 281, y: 51, color: "#ff6b6b" },
@@ -204,9 +213,8 @@
   ];
 
   // ---------- GIMBLE / BLACKJACK TABLE ----------
-  // Use your canvas click-logger to find the exact coordinates for the table!
-  const gimble = { x: 54, y: 142, color: "#ffb7b2" }; // Gimble is pink
-  const INTERACT_RADIUS = 25; // How close the player needs to be
+  const gimble = { x: 54, y: 142, color: "#ffb7b2" };
+  const INTERACT_RADIUS = 25;
   let nearGimble = false;
 
   const keys = Object.create(null);
@@ -218,14 +226,13 @@
 
     // INTERACTION LOGIC
     if (e.key.toLowerCase() === "e" && nearGimble && !exiting) {
-      exiting = true; // Lock player movement
+      exiting = true;
       const overlay = document.getElementById("introOverlay");
       overlay.classList.remove("fade");
       overlay.classList.add("fadeOut");
       
-      // Redirect to the blackjack game after fade
       setTimeout(() => {
-        window.location.href = "blackjack.html"; // Change this to your actual game filename!
+        window.location.href = "blackjack.html";
       }, 2000);
     }
   });
@@ -265,10 +272,7 @@
     const cam = getCamera();
     const worldX = cam.x + (cssX * DPR) / scale;
     const worldY = cam.y + (cssY * DPR) / scale;
-    console.log(
-      "walk-around: clicked world coords = (" +
-      Math.round(worldX) + ", " + Math.round(worldY) + ")"
-    );
+    console.log("Walk-around world coords:", Math.round(worldX), Math.round(worldY));
   });
 
   function updatePlayer(dt) {
@@ -403,15 +407,12 @@
     ctx.drawImage(mapImage, 0, 0);
 
     for (let i = 0; i < npcs.length; i++) drawNPC(npcs[i]);
-    
-    // Draw Gimble
     drawNPC(gimble);
-    
     drawPlayer();
 
     ctx.restore();
 
-    // Check interaction distance and draw prompt on the UI layer
+    // Interaction prompt
     const distToGimble = Math.hypot(player.x - gimble.x, player.y - gimble.y);
     nearGimble = distToGimble <= INTERACT_RADIUS;
 
